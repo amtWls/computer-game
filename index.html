@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>아키바 PC 조립 공방 - 확장판</title>
+    <style>
+        /* 기존 스타일 확장 */
+        .component-item.disabled { opacity: 0.5; pointer-events: none; }
+        .market-trend { border: 1px solid #ff9900; padding: 10px; margin: 10px 0; }
+        .special-request { color: #ff5555; }
+        .price-change { font-size: 0.8em; }
+        .price-up { color: #ff4444; }
+        .price-down { color: #44ff44; }
+        #totalCost { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <!-- 기존 HTML 구조 확장 -->
+    <div class="market-trend">
+        <h3>시장 동향 (월간)</h3>
+        <div id="marketTrends"></div>
+    </div>
+    <div id="specialRequest" class="special-request"></div>
+    <div id="totalCost">총 비용: 0엔</div>
+
+    <script>
+        // 확장된 게임 상태
+        let gameState = {
+            // ...기존 상태 유지...
+            marketTrends: {},
+            currentTrends: {},
+            specialRequests: []
+        };
+
+        // 확장된 부품 데이터베이스 (300개 이상 부품 예시)
+        const components = {
+            cpu: [
+                {name: "Ryzen 5 5600", price: 25000, perf: 70, power: 65, type: 'game'},
+                {name: "Core i9-13900K", price: 80000, perf: 95, power: 125, type: 'broadcast'},
+                // ...다른 CPU들...
+            ],
+            // ...다른 부품 카테고리들...
+            cooler: [
+                {name: "기본 쿨러", price: 0, perf: 50, noise: 40},
+                {name: "수랭 쿨러", price: 15000, perf: 85, noise: 25},
+                // ...다른 쿨러들...
+            ]
+        };
+
+        // 1. 부품 예산 초과 방지 시스템
+        function calculateTotalCost() {
+            const total = gameState.selectedComponents.reduce((sum, c) => sum + c.price, 0);
+            document.getElementById('totalCost').textContent = `총 비용: ${total.toLocaleString()}엔 (예산: ${gameState.currentCustomer.budget.toLocaleString()}엔)`;
+            return total;
+        }
+
+        // 2. 조립 성공률 계산 로직
+        function calculateAssemblySuccess() {
+            const compatibilityScore = checkCompatibility();
+            const timeBonus = Math.min(1, gameState.currentCustomer.timeLimit / 60);
+            return Math.min(0.95, compatibilityScore * 0.7 + timeBonus * 0.3);
+        }
+
+        function checkCompatibility() {
+            // 소켓 호환성, 전원 공급, 폼 팩터 검사
+            let score = 1;
+            const parts = gameState.selectedComponents;
+            
+            // CPU와 메인보드 호환성
+            if(!parts.find(p => p.type === 'mb')?.sockets?.includes(parts.find(p => p.type === 'cpu')?.socket)) {
+                score *= 0.5;
+            }
+            
+            // 전원 공급 능력
+            const psuWattage = parts.find(p => p.type === 'psu')?.wattage || 0;
+            const totalPower = parts.reduce((sum, p) => sum + (p.power || 0), 0);
+            score *= Math.min(1, psuWattage / (totalPower * 1.2));
+            
+            return score;
+        }
+
+        // 3. 고객 특수 요청 시스템
+        const specialRequests = [
+            {
+                condition: (customer) => customer.purpose === 'game',
+                effect: "RGB 라이트링 필수! (조명 관련 부품 +30% 가격)",
+                apply: (components) => components.filter(c => c.category === 'lighting').forEach(c => c.price *= 1.3)
+            },
+            // ...다른 특수 요청들...
+        ];
+
+        function generateSpecialRequests() {
+            gameState.specialRequests = [];
+            if(Math.random() < 0.4) {
+                const request = specialRequests[Math.floor(Math.random()*specialRequests.length)];
+                gameState.specialRequests.push(request);
+                document.getElementById('specialRequest').innerHTML = `특별 요청: ${request.effect}`;
+            }
+        }
+
+        // 4. 리얼타임 가격 변동 시스템
+        function updateMarketTrends() {
+            const trends = {
+                cpu: Math.random() * 0.2 - 0.1, // ±10%
+                gpu: Math.random() * 0.3 - 0.15,
+                // ...다른 카테고리...
+            };
+            
+            gameState.currentTrends = trends;
+            displayMarketTrends();
+        }
+
+        function applyPriceChanges() {
+            Object.entries(components).forEach(([category, items]) => {
+                const trend = gameState.currentTrends[category] || 0;
+                items.forEach(item => {
+                    item.basePrice = item.basePrice || item.price;
+                    item.price = item.basePrice * (1 + trend + (Math.random()*0.1-0.05));
+                });
+            });
+        }
+
+        // 5. 확장된 부품 선택 시스템
+        function selectComponent(category, item) {
+            const existing = gameState.selectedComponents.find(c => c.category === category);
+            if(existing) gameState.selectedComponents = gameState.selectedComponents.filter(c => c !== existing);
+            
+            const newItem = {...item, category};
+            gameState.selectedComponents.push(newItem);
+            
+            // 예산 초과 시 경고
+            if(calculateTotalCost() > gameState.currentCustomer.budget) {
+                alert('예산을 초과했습니다!');
+            }
+            
+            renderComponents();
+        }
+
+        // 확장된 게임 루프
+        function gameLoop() {
+            // 매일 시장 가격 변동
+            if(gameState.day % 3 === 0) applyPriceChanges();
+            
+            // 매월 1일 새로운 트렌드 생성
+            if(gameState.day % 30 === 1) updateMarketTrends();
+            
+            // 10% 확률로 특별 이벤트 발생
+            if(Math.random() < 0.1) triggerRandomEvent();
+        }
+
+        // 확장된 UI 업데이트
+        function displayMarketTrends() {
+            let html = '';
+            Object.entries(gameState.currentTrends).forEach(([category, value]) => {
+                html += `<div class="${value > 0 ? 'price-up' : 'price-down'}">
+                    ${category.toUpperCase()}: ${(value*100).toFixed(1)}%
+                </div>`;
+            });
+            document.getElementById('marketTrends').innerHTML = html;
+        }
+
+        // ...기타 시스템들...
+
+        // 초기화 함수 확장
+        function initGame() {
+            // ...기존 초기화...
+            updateMarketTrends();
+            generateSpecialRequests();
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>
